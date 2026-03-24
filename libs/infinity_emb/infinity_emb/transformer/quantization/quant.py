@@ -545,8 +545,8 @@ class WeightOnlyInt4GPTQQuantHandler(GPTQQuantHandler):
             torch.cat(x, dim=1) for x in zip(*qparams_list)
         ]
         # skip unless padding=True or its correctly sized
-        self.skip_layer_func = lambda linear_weight: not (
-            _check_linear_int4_k(linear_weight.shape[-1], groupsize, inner_k_tiles) or padding
+        self.skip_layer_func = lambda linear_weight: (
+            not (_check_linear_int4_k(linear_weight.shape[-1], groupsize, inner_k_tiles) or padding)
         )
 
         # we need to do the padding here, both for q and the qparams if necessary
@@ -603,9 +603,9 @@ class WeightOnlyInt4Linear(Module):
         self.inner_k_tiles = inner_k_tiles
 
         assert out_features % 8 == 0, "require out_features % 8 == 0"
-        assert (
-            in_features % (inner_k_tiles * 16) == 0
-        ), "require in_features % (innerKTiles * 16) == 0"
+        assert in_features % (inner_k_tiles * 16) == 0, (
+            "require in_features % (innerKTiles * 16) == 0"
+        )
         if use_cuda:
             self.register_buffer(
                 "weight",

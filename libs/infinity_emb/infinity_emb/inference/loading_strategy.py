@@ -7,10 +7,10 @@ if CHECK_TORCH.is_available:
     import torch
 if CHECK_TRANSFORMERS.is_available:
     from transformers import is_torch_npu_available  # type: ignore
-    from transformers.utils.import_utils import is_torch_xla_available # type: ignore
+    from transformers.utils.import_utils import is_torch_xla_available  # type: ignore
 
 if CHECK_XLA.is_available:
-    import torch_xla # type: ignore
+    import torch_xla  # type: ignore
 
 
 def _validate_availale_device_ids(
@@ -111,7 +111,7 @@ def get_loading_strategy_torch(args: EngineArgs) -> LoadingStrategy:
 
 
 def get_loading_strategy(args: EngineArgs) -> LoadingStrategy:
-    if args.engine in [InferenceEngine.torch, InferenceEngine.ctranslate2]:
+    if args.engine == InferenceEngine.torch:
         stat = get_loading_strategy_torch(args)
     else:
         stat = LoadingStrategy(

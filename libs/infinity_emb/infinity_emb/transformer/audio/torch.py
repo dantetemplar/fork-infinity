@@ -31,7 +31,6 @@ class TorchAudioModel(BaseAudioEmbedModel):
             engine_args.model_name_or_path,
             revision=engine_args.revision,
             trust_remote_code=engine_args.trust_remote_code,
-            # attn_implementation="eager" if engine_args.bettertransformer else None,
         )
 
         self.processor = AutoProcessor.from_pretrained(
@@ -45,12 +44,12 @@ class TorchAudioModel(BaseAudioEmbedModel):
             self.model.vision_model = torch.compile(self.model.vision_model, dynamic=True)
             self.model.text_model = torch.compile(self.model.text_model, dynamic=True)
 
-        assert hasattr(
-            self.model, "get_text_features"
-        ), f"AutoModel of {engine_args.model_name_or_path} does not have get_text_features method"
-        assert hasattr(
-            self.model, "get_audio_features"
-        ), f"AutoModel of {engine_args.model_name_or_path} does not have get_audio_features method"
+        assert hasattr(self.model, "get_text_features"), (
+            f"AutoModel of {engine_args.model_name_or_path} does not have get_text_features method"
+        )
+        assert hasattr(self.model, "get_audio_features"), (
+            f"AutoModel of {engine_args.model_name_or_path} does not have get_audio_features method"
+        )
         self.max_length = None
         if hasattr(self.model.config, "max_length"):
             self.max_length = self.model.config.max_length

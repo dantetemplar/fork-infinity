@@ -141,7 +141,6 @@ async def test_engine_reranker_top_n(engine_name):
             model_name_or_path="mixedbread-ai/mxbai-rerank-xsmall-v1",
             engine=engine_name,
             model_warmup=False,
-            bettertransformer=False,
         )
     )
 
@@ -189,7 +188,6 @@ async def test_async_api_torch_lengths_via_tokenize_usage():
             device=device,
             lengths_via_tokenize=True,
             model_warmup=False,
-            bettertransformer=False,
             compile=SHOULD_TORCH_COMPILE,
         )
     )
@@ -335,7 +333,6 @@ async def test_async_api_torch_embedding_quant(embedding_dtype: EmbeddingDtype):
             device=Device[device],
             lengths_via_tokenize=True,
             model_warmup=False,
-            bettertransformer=False,
             compile=SHOULD_TORCH_COMPILE,
             embedding_dtype=embedding_dtype,
         )

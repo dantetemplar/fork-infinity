@@ -80,8 +80,6 @@ amd:
   extra_env_variables: |
     # RUN conda init --reverse --all
     # RUN rm -rf /opt/conda && rm -rf /var/lib/jenkins
-    # Bettertransformer is not supported on AMD
-    ENV INFINITY_BETTERTRANSFORMER="0"
 
 trt:
   base_image: nvidia/cuda:12.9.0-cudnn-devel-ubuntu22.04

@@ -45,7 +45,6 @@ class EngineArgs:
         device_id, DeviceID or str: device index to use for inference.
             Defaults to [], no preferred placement.
         compile, bool: compile model for better performance. Defaults to False.
-        bettertransformer, bool: use bettertransformer. Defaults to True.
         dtype, Dtype or str: data type to use for inference. Defaults to Dtype.auto.
         pooling_method, PoolingMethod or str: pooling method to use. Defaults to PoolingMethod.auto.
         lengths_via_tokenize, bool: schedule by token usage. Defaults to False.
@@ -62,7 +61,6 @@ class EngineArgs:
     device: Device = Device[MANAGER.device[0]]
     device_id: DeviceID = field(default_factory=lambda: DeviceID(MANAGER.device_id[0]))
     compile: bool = MANAGER.compile[0]
-    bettertransformer: bool = MANAGER.bettertransformer[0]
     dtype: Dtype = Dtype[MANAGER.dtype[0]]
     pooling_method: PoolingMethod = PoolingMethod[MANAGER.pooling_method[0]]
     lengths_via_tokenize: bool = MANAGER.lengths_via_tokenize[0]
@@ -104,7 +102,7 @@ class EngineArgs:
                 self,
                 "vector_disk_cache_path",
                 (
-                    f"{self.engine}_{self.model_name_or_path.replace('/','_')}"
+                    f"{self.engine}_{self.model_name_or_path.replace('/', '_')}"
                     if self.vector_disk_cache_path
                     else ""
                 ),
@@ -156,16 +154,15 @@ class EngineArgs:
                 model_warmup=model_warmup,
                 device=device,
                 compile=compile,
-                bettertransformer=bettertransformer,
                 dtype=dtype,
                 pooling_method=pooling_method,
                 lengths_via_tokenize=lengths_via_tokenize,
                 embedding_dtype=embedding_dtype,
                 served_model_name=served_model_name,
                 onnx_disable_optimize=onnx_disable_optimize,
-                onnx_do_not_prefer_quantized=onnx_do_not_prefer_quantized
+                onnx_do_not_prefer_quantized=onnx_do_not_prefer_quantized,
             )
-            for model_name_or_path, batch_size, revision, trust_remote_code, engine, model_warmup, device, compile, bettertransformer, dtype, pooling_method, lengths_via_tokenize, embedding_dtype, served_model_name,onnx_disable_optimize,onnx_do_not_prefer_quantized in zip_longest(
+            for model_name_or_path, batch_size, revision, trust_remote_code, engine, model_warmup, device, compile, dtype, pooling_method, lengths_via_tokenize, embedding_dtype, served_model_name, onnx_disable_optimize, onnx_do_not_prefer_quantized in zip_longest(
                 MANAGER.model_id,
                 MANAGER.batch_size,
                 MANAGER.revision,
@@ -174,13 +171,12 @@ class EngineArgs:
                 MANAGER.model_warmup,
                 MANAGER.device,
                 MANAGER.compile,
-                MANAGER.bettertransformer,
                 MANAGER.dtype,
                 MANAGER.pooling_method,
                 MANAGER.lengths_via_tokenize,
                 MANAGER.embedding_dtype,
                 MANAGER.served_model_name,
                 MANAGER.onnx_disable_optimize,
-                MANAGER.onnx_do_not_prefer_quantized
+                MANAGER.onnx_do_not_prefer_quantized,
             )
         ]

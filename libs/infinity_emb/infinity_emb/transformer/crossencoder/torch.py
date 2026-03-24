@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 
 from infinity_emb._optional_imports import CHECK_SENTENCE_TRANSFORMERS, CHECK_TORCH
 from infinity_emb.args import EngineArgs
-from infinity_emb.log_handler import logger
 from infinity_emb.primitives import Device
 from infinity_emb.transformer.abstract import BaseCrossEncoder
 from infinity_emb.transformer.quantization.interface import (
@@ -27,12 +26,6 @@ else:
 if TYPE_CHECKING:
     from torch import Tensor
 
-
-from infinity_emb.transformer.acceleration import (
-    to_bettertransformer,
-    check_if_bettertransformer_possible,
-)
-
 __all__ = [
     "CrossEncoderPatched",
 ]
@@ -45,10 +38,6 @@ class CrossEncoderPatched(CrossEncoder, BaseCrossEncoder):
         CHECK_SENTENCE_TRANSFORMERS.mark_required()
 
         model_kwargs = {}
-        attempt_bt = check_if_bettertransformer_possible(engine_args)
-        if engine_args.bettertransformer and attempt_bt:
-            model_kwargs["attn_implementation"] = "eager"
-
         ls = engine_args._loading_strategy
         assert ls is not None
 
@@ -60,7 +49,7 @@ class CrossEncoderPatched(CrossEncoder, BaseCrossEncoder):
             revision=engine_args.revision,
             trust_remote_code=engine_args.trust_remote_code,
             device=ls.device_placement,
-            automodel_args=model_kwargs,
+            model_kwargs=model_kwargs,
         )
         self.model.to(ls.device_placement)
 
@@ -70,13 +59,6 @@ class CrossEncoderPatched(CrossEncoder, BaseCrossEncoder):
 
         self._infinity_tokenizer = copy.deepcopy(self.tokenizer)
         self.model.eval()  # type: ignore
-        if engine_args.bettertransformer and attempt_bt:
-            self.model = to_bettertransformer(
-                self.model,  # type: ignore
-                engine_args,
-                logger,
-            )
-
         self.model.to(ls.loading_dtype)
 
         if ls.quantization_dtype is not None:

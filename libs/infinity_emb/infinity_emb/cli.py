@@ -125,7 +125,6 @@ if CHECK_TYPER.is_available:
         embedding_dtype: "EmbeddingDtype" = EmbeddingDtype.default_value(),  # type: ignore
         pooling_method: "PoolingMethod" = MANAGER.pooling_method[0],  # type: ignore
         compile: bool = MANAGER.compile[0],
-        bettertransformer: bool = MANAGER.bettertransformer[0],
         preload_only: bool = MANAGER.preload_only,
         permissive_cors: bool = MANAGER.permissive_cors,
         api_key: str = MANAGER.api_key,
@@ -163,7 +162,6 @@ if CHECK_TYPER.is_available:
             vector_disk_cache=[vector_disk_cache],
             lengths_via_tokenize=[lengths_via_tokenize],
             compile=[compile],
-            bettertransformer=[bettertransformer],
             embedding_dtype=[EmbeddingDtype.float32],  # set to float32
             # unique kwargs
             preload_only=preload_only,
@@ -201,7 +199,7 @@ if CHECK_TYPER.is_available:
         ),
         engine: list[InferenceEngine] = typer.Option(
             **_construct("engine"),
-            help="Which backend to use. `torch` uses Pytorch GPU/CPU, optimum uses ONNX on GPU/CPU/NVIDIA-TensorRT, `CTranslate2` uses torch+ctranslate2 on CPU/GPU.",
+            help="Which backend to use. `torch` uses Pytorch GPU/CPU, optimum uses ONNX on GPU/CPU/NVIDIA-TensorRT.",
         ),
         model_warmup: list[bool] = typer.Option(
             **_construct("model_warmup"),
@@ -237,10 +235,6 @@ if CHECK_TYPER.is_available:
         compile: list[bool] = typer.Option(
             **_construct("compile"),
             help="Enable usage of `torch.compile(dynamic=True)` if engine relies on it.",
-        ),
-        bettertransformer: list[bool] = typer.Option(
-            **_construct("bettertransformer"),
-            help="Enables varlen flash-attention-2 via the `BetterTransformer` implementation. If available for this model.",
         ),
         # arguments for uvicorn / server
         preload_only: bool = typer.Option(
@@ -312,7 +306,6 @@ if CHECK_TYPER.is_available:
         embedding_dtype, EmbeddingDtype: data type to use for embeddings. Defaults to EmbeddingDtype.float32 or "float32"
         pooling_method, PoolingMethod: pooling method to use. Defaults to PoolingMethod.auto or "auto"
         compile, bool: compile model for faster inference. Defaults to False.
-        use_bettertransformer, bool: use bettertransformer. Defaults to True.
         preload_only, bool: only preload the model and exit. Defaults to False.
         permissive_cors, bool: add permissive CORS headers to enable consumption from a browser. Defaults to False.
         api_key, str: optional Bearer token for authentication. Defaults to "", which disables authentication.
@@ -338,10 +331,9 @@ if CHECK_TYPER.is_available:
             embedding_dtype=embedding_dtype,
             pooling_method=pooling_method,
             compile=compile,
-            bettertransformer=bettertransformer,
             served_model_name=served_model_name,
             onnx_disable_optimize=onnx_disable_optimize,
-            onnx_do_not_prefer_quantized=onnx_do_not_prefer_quantized
+            onnx_do_not_prefer_quantized=onnx_do_not_prefer_quantized,
         )
 
         engine_args = []

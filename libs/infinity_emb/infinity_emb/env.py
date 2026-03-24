@@ -30,11 +30,11 @@ class __Infinity_EnvManager:
             return
         self.__IS_RECURSION = True
 
-        self._debug(f"Loading Infinity variables from environment.\nCONFIG:\n{'-'*10}")
+        self._debug(f"Loading Infinity variables from environment.\nCONFIG:\n{'-' * 10}")
         for f_name in dir(self):
             if isinstance(getattr(type(self), f_name, None), cached_property):
                 getattr(MANAGER, f_name)  # pre-cache
-        self._debug(f"{'-'*10}\nENV variables loaded.")
+        self._debug(f"{'-' * 10}\nENV variables loaded.")
 
     def _debug(self, message: str):
         """print as debug without having to import logging."""
@@ -139,12 +139,6 @@ class __Infinity_EnvManager:
     def compile(self):
         return self._to_bool_multiple(
             self._optional_infinity_var_multiple("compile", default=["false"])
-        )
-
-    @cached_property
-    def bettertransformer(self):
-        return self._to_bool_multiple(
-            self._optional_infinity_var_multiple("bettertransformer", default=["true"])
         )
 
     @cached_property
@@ -265,10 +259,12 @@ class __Infinity_EnvManager:
         return self._to_bool_multiple(
             self._optional_infinity_var_multiple("onnx_disable_optimize", default=["false"])
         )
-    
+
     @cached_property
     def onnx_do_not_prefer_quantized(self):
         return self._to_bool_multiple(
             self._optional_infinity_var_multiple("onnx_do_not_prefer_quantized", default=["false"])
         )
+
+
 MANAGER = __Infinity_EnvManager()

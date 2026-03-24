@@ -59,6 +59,6 @@ async def test_authentication(client):
             headers=headers,
             json=payload,
         )
-        assert (response).status_code in (
-            [200, 400] if authenticated else [401]
-        ), f"route: {route}, payload: {payload}, response: {response.json()}"
+        assert (response).status_code in ([200, 400] if authenticated else [401]), (
+            f"route: {route}, payload: {payload}, response: {response.json()}"
+        )

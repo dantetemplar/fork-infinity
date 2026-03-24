@@ -13,8 +13,8 @@ keywords = ["vector", "embedding", "neural", "search", "sentence-transformers"]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.14"
-# basics, pin numpy <2 for onnx
-numpy = ">=1.20.0,<2"
+# basics
+numpy = ">=1.20.0"
 huggingface_hub= {version = ">=0.32.0"}
 # logging
 rich = {version = "^13", optional=true}
@@ -29,10 +29,9 @@ posthog = {version = "*", optional=true}
 # backend
 # pin torch to a specific source, but default to pypi. use sed to overwrite.
 torch = {version = ">=2.2.1", source = "pypi", optional=true}
-sentence-transformers = {version = "^3.0.1", optional=true} 
-transformers = {version = ">=4.47.0,<=5.0", optional=true, extras=["sentencepiece"]}
-ctranslate2 = {version = ">=4.0.0", optional=true}
-optimum = {version = ">=1.24.0", optional=true, extras=["onnxruntime"]}
+sentence-transformers = {version = ">=5.0.0", optional=true} 
+transformers = {version = ">=4.47.0", optional=true, extras=["sentencepiece"]}
+optimum = {version = ">=2.0.0", optional=true, extras=["onnxruntime"]}
 einops = {version = "*", optional=true}
 # vision
 pillow = {version = "*", optional=true}
@@ -79,8 +78,8 @@ jinja2-cli = "*"
 # 2.6.0 is also pinned in docker image with flash-attn build
 torch = "2.8.0" 
 prometheus-fastapi-instrumentator = "7.0.0"
-# sentence-transformers = "3.3.1"
-transformers = "4.47.0"
+# sentence-transformers = "5.0.0"
+transformers = ">=4.47.0"
 fastapi = "0.115.2"
 
 [tool.poetry.group.codespell.dependencies]
@@ -101,7 +100,6 @@ types-chardet = "^5.0.4.6"
 mypy-protobuf = "^3.0.0"
 
 [tool.poetry.extras]
-ct2=["ctranslate2","sentence-transformers","torch","transformers"]
 optimum=["optimum"]
 torch=["sentence-transformers","torch"]
 einops=["einops"]
@@ -122,7 +120,6 @@ server=[
 ]
 all=[
     "colpali-engine",
-    "ctranslate2",
     "diskcache",
     "einops",
     "fastapi", 

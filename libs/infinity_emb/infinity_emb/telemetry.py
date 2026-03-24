@@ -28,7 +28,7 @@ TELEMETRY_ENABLED = CHECK_POSTHOG.is_available and (MANAGER.anonymous_usage_stat
 def telemetry_log_info():
     if TELEMETRY_ENABLED:
         logger.info(
-            "Anonymized telemetry can be disabled " "via environment variable `DO_NOT_TRACK=1`."
+            "Anonymized telemetry can be disabled via environment variable `DO_NOT_TRACK=1`."
         )
     else:
         return logger.info("DO_NOT_TRACK=1 registered. Anonymized usage statistics are disabled.")

@@ -94,18 +94,17 @@ class TIMM(BaseTIMM):
         else:
             self.model = AutoModel.from_pretrained(
                 **extra_model_args
-                # attn_implementation="eager" if engine_args.bettertransformer else None,
             )
 
             self.processor = AutoProcessor.from_pretrained(
                 **extra_processor_args,
             )
-            assert hasattr(
-                self.model, "get_text_features"
-            ), f"AutoModel of {engine_args.model_name_or_path} does not have get_text_features method"
-            assert hasattr(
-                self.model, "get_image_features"
-            ), f"AutoModel of {engine_args.model_name_or_path} does not have get_image_features method"
+            assert hasattr(self.model, "get_text_features"), (
+                f"AutoModel of {engine_args.model_name_or_path} does not have get_text_features method"
+            )
+            assert hasattr(self.model, "get_image_features"), (
+                f"AutoModel of {engine_args.model_name_or_path} does not have get_image_features method"
+            )
         if device == Device.cuda:
             self.model = self.model.cuda()
             if engine_args.dtype in (Dtype.float16, Dtype.auto):

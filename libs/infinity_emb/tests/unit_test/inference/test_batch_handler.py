@@ -30,7 +30,6 @@ async def load_patched_bh() -> tuple[SentenceTransformerPatched, BatchHandler]:
     model = SentenceTransformerPatched(
         engine_args=EngineArgs(
             model_name_or_path=MODEL_NAME,
-            bettertransformer=not torch.backends.mps.is_available(),
         )
     )
     model.encode(["hello " * 512] * BATCH_SIZE)
@@ -114,7 +113,7 @@ async def test_batch_performance_raw(get_sts_bechmark_dataset, load_patched_bh):
             f" SentenceTransformers.encode: {time_st_patched} > {time_st}"
         )
         assert time_batch_handler / time_st < LIMIT_SLOWDOWN, (
-            "batch_handler slower than Sentence Transformers" f" {time_batch_handler}: > {time_st}"
+            f"batch_handler slower than Sentence Transformers {time_batch_handler}: > {time_st}"
         )
         assert time_batch_handler / time_st_patched < LIMIT_SLOWDOWN, (
             "raw batch_handler threaded queueing looses significant "

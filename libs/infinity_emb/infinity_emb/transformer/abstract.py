@@ -239,10 +239,10 @@ def run_warmup(model, inputs) -> tuple[float, float, str]:
         f"Getting timings for batch_size={len(inputs)}"
         " and avg tokens per sentence="
         f"{model.tokenize_lengths([i.content.str_repr() for i in inputs])[0]}\n"
-        f"\t{(tokenization_time - start)*1000:.2f} \t ms tokenization\n"
-        f"\t{(inference_time-tokenization_time)*1000:.2f} \t ms inference\n"
-        f"\t{(post_time-inference_time)*1000:.2f} \t ms post-processing\n"
-        f"\t{(post_time - start)*1000:.2f} \t ms total\n"
+        f"\t{(tokenization_time - start) * 1000:.2f} \t ms tokenization\n"
+        f"\t{(inference_time - tokenization_time) * 1000:.2f} \t ms inference\n"
+        f"\t{(post_time - inference_time) * 1000:.2f} \t ms post-processing\n"
+        f"\t{(post_time - start) * 1000:.2f} \t ms total\n"
         f"embeddings/sec: {len(inputs) / (post_time - start):.2f}"
     )
 
