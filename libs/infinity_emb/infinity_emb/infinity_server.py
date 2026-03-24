@@ -2,15 +2,19 @@
 # Copyright (c) 2023-now michaelfeil
 
 import asyncio
+import gzip
 import os
 import signal
 import time
 import threading
 import uuid
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from typing import Any, Optional, Union, TYPE_CHECKING
 
 import infinity_emb
+from fastapi import Request, Response
+from fastapi.routing import APIRoute
 from infinity_emb.args import EngineArgs
 from infinity_emb.engine import AsyncEmbeddingEngine, AsyncEngineArray
 from infinity_emb.env import MANAGER
@@ -28,6 +32,27 @@ from infinity_emb.telemetry import PostHog, StartupTelemetry, telemetry_log_info
 
 if TYPE_CHECKING:
     from infinity_emb.fastapi_schemas.pymodels import DataURIorURL
+
+
+class GzipRequest(Request):
+    async def body(self) -> bytes:
+        if not hasattr(self, "_body"):
+            body = await super().body()
+            if "gzip" in self.headers.getlist("Content-Encoding"):
+                body = gzip.decompress(body)
+            self._body = body
+        return self._body
+
+
+class GzipRoute(APIRoute):
+    def get_route_handler(self) -> Callable:
+        original_route_handler = super().get_route_handler()
+
+        async def custom_route_handler(request: Request) -> Response:
+            request = GzipRequest(request.scope, request.receive)
+            return await original_route_handler(request)
+
+        return custom_route_handler
 
 
 def send_telemetry_start(
@@ -64,6 +89,7 @@ def create_server(
     """
     from fastapi import Depends, FastAPI, HTTPException, responses, status
     from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.middleware.gzip import GZipMiddleware
     from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
     from prometheus_fastapi_instrumentator import Instrumentator
     from infinity_emb.fastapi_schemas.pymodels import (
@@ -133,6 +159,7 @@ def create_server(
         lifespan=lifespan,
         root_path=proxy_root_path,
     )
+    app.router.route_class = GzipRoute
     route_dependencies = []
 
     if permissive_cors:
@@ -143,6 +170,7 @@ def create_server(
             allow_methods=["*"],
             allow_headers=["*"],
         )
+    app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
     if api_key:
         oauth2_scheme = HTTPBearer(auto_error=False)
 

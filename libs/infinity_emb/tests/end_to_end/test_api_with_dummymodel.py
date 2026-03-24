@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import gzip
 import json
 import pathlib
 import random
@@ -154,9 +155,9 @@ async def test_batch_embedding(client, get_sts_bechmark_dataset):
 @pytest.mark.skipif(not PATH_OPENAPI.exists(), reason="openapi.json does not exist")
 @pytest.mark.anyio
 async def test_openapi_same_as_docs_file(client):
-    assert (
-        PATH_OPENAPI.exists()
-    ), f"openapi.json file does not exist, it should be in {PATH_OPENAPI.resolve()}"
+    assert PATH_OPENAPI.exists(), (
+        f"openapi.json file does not exist, it should be in {PATH_OPENAPI.resolve()}"
+    )
 
     openapi_req = await client.get("/openapi.json")
     assert openapi_req.status_code == 200
@@ -193,3 +194,32 @@ async def test_matryoshka_embedding(client):
         for embedding, sentence in zip(rdata["data"], inp):
             assert len(sentence) == embedding["embedding"][0]
             assert len(embedding["embedding"]) == matryoshka_dim
+
+
+@pytest.mark.anyio
+async def test_gzip_request_and_response(client):
+    payload = {"input": ["hello gzip"], "model": MODEL_NAME}
+    compressed_payload = gzip.compress(json.dumps(payload).encode("utf-8"))
+
+    request_response = await client.post(
+        f"{PREFIX}/embeddings",
+        content=compressed_payload,
+        headers={
+            "Content-Type": "application/json",
+            "Content-Encoding": "gzip",
+        },
+    )
+    assert request_response.status_code == 200, (
+        f"{request_response.status_code}, {request_response.text}"
+    )
+    assert request_response.json()["model"] == MODEL_NAME
+
+    # Force a large response body so GZipMiddleware compresses it.
+    large_payload = {"input": ["x" * 3000], "model": MODEL_NAME}
+    response = await client.post(
+        f"{PREFIX}/embeddings",
+        json=large_payload,
+        headers={"Accept-Encoding": "gzip"},
+    )
+    assert response.status_code == 200, f"{response.status_code}, {response.text}"
+    assert response.headers.get("content-encoding") == "gzip"
