@@ -28,6 +28,10 @@ from .re_rank_result_object import ReRankResultObject
 from .rerank_input import RerankInput
 from .response_health import ResponseHealth
 from .stats import Stats
+from .sparse_embedding_input import SparseEmbeddingInput
+from .sparse_embedding_object import SparseEmbeddingObject
+from .sparse_embedding_result import SparseEmbeddingResult
+from .sparse_vector import SparseVector
 from .usage import Usage
 from .validation_error import ValidationError
 
@@ -60,6 +64,10 @@ __all__ = (
     "ReRankResultObject",
     "ResponseHealth",
     "Stats",
+    "SparseEmbeddingInput",
+    "SparseEmbeddingObject",
+    "SparseEmbeddingResult",
+    "SparseVector",
     "Usage",
     "ValidationError",
 )

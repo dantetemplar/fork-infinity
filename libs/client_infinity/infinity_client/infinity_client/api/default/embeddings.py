@@ -1,3 +1,5 @@
+import gzip
+import json
 from http import HTTPStatus
 from typing import Any, Dict, Optional, Union
 
@@ -16,6 +18,7 @@ from ...types import Response
 def _get_kwargs(
     *,
     body: Union["OpenAIEmbeddingInputAudio", "OpenAIEmbeddingInputImage", "OpenAIEmbeddingInputText"],
+    use_gzip: bool = False,
 ) -> Dict[str, Any]:
     headers: Dict[str, Any] = {}
 
@@ -32,8 +35,12 @@ def _get_kwargs(
     else:
         _body = body.to_dict()
 
-    _kwargs["json"] = _body
     headers["Content-Type"] = "application/json"
+    if use_gzip:
+        _kwargs["content"] = gzip.compress(json.dumps(_body, ensure_ascii=False).encode())
+        headers["Content-Encoding"] = "gzip"
+    else:
+        _kwargs["json"] = _body
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -71,6 +78,7 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     body: Union["OpenAIEmbeddingInputAudio", "OpenAIEmbeddingInputImage", "OpenAIEmbeddingInputText"],
+    use_gzip: bool = False,
 ) -> Response[Union[HTTPValidationError, OpenAIEmbeddingResult]]:
     r"""Embeddings
 
@@ -168,6 +176,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+        use_gzip=use_gzip,
     )
 
     response = client.get_httpx_client().request(
@@ -181,6 +190,7 @@ def sync(
     *,
     client: Union[AuthenticatedClient, Client],
     body: Union["OpenAIEmbeddingInputAudio", "OpenAIEmbeddingInputImage", "OpenAIEmbeddingInputText"],
+    use_gzip: bool = False,
 ) -> Optional[Union[HTTPValidationError, OpenAIEmbeddingResult]]:
     r"""Embeddings
 
@@ -279,6 +289,7 @@ def sync(
     return sync_detailed(
         client=client,
         body=body,
+        use_gzip=use_gzip,
     ).parsed
 
 
@@ -286,6 +297,7 @@ async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     body: Union["OpenAIEmbeddingInputAudio", "OpenAIEmbeddingInputImage", "OpenAIEmbeddingInputText"],
+    use_gzip: bool = False,
 ) -> Response[Union[HTTPValidationError, OpenAIEmbeddingResult]]:
     r"""Embeddings
 
@@ -383,6 +395,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+        use_gzip=use_gzip,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -394,6 +407,7 @@ async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
     body: Union["OpenAIEmbeddingInputAudio", "OpenAIEmbeddingInputImage", "OpenAIEmbeddingInputText"],
+    use_gzip: bool = False,
 ) -> Optional[Union[HTTPValidationError, OpenAIEmbeddingResult]]:
     r"""Embeddings
 
@@ -493,5 +507,6 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             body=body,
+            use_gzip=use_gzip,
         )
     ).parsed
