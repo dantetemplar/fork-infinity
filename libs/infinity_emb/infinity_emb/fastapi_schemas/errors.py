@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Optional
 from infinity_emb._optional_imports import CHECK_FASTAPI
 
 if CHECK_FASTAPI.is_available:
-    from fastapi.responses import ORJSONResponse
+    from fastapi.responses import JSONResponse
 
 if TYPE_CHECKING:
     from fastapi import Request
@@ -42,12 +42,12 @@ class OpenAIException(Exception):
 
 def openai_exception_handler(request: Request, exc: Exception):
     if isinstance(exc, OpenAIException):
-        return ORJSONResponse(
+        return JSONResponse(
             status_code=exc.code,
             content=exc.json(),
         )
     else:
-        return ORJSONResponse(
+        return JSONResponse(
             status_code=500,
             content=OpenAIException(
                 message="Internal Server Error",

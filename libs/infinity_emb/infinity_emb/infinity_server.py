@@ -87,7 +87,7 @@ def create_server(
     creates the FastAPI server for a set of EngineArgs.
 
     """
-    from fastapi import Depends, FastAPI, HTTPException, responses, status
+    from fastapi import Depends, FastAPI, HTTPException, status
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.middleware.gzip import GZipMiddleware
     from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -189,7 +189,7 @@ def create_server(
     instrumentator = Instrumentator().instrument(app)
     app.add_exception_handler(errors.OpenAIException, errors.openai_exception_handler)
 
-    @app.get("/health", operation_id="health", response_class=responses.ORJSONResponse)
+    @app.get("/health", operation_id="health")
     async def _health() -> dict[str, float]:
         """
         health check endpoint
@@ -212,7 +212,6 @@ def create_server(
     @app.get(
         f"{url_prefix}/models",
         response_model=OpenAIModelInfo,
-        response_class=responses.ORJSONResponse,
         dependencies=route_dependencies,
         operation_id="models",
     )
@@ -277,7 +276,6 @@ def create_server(
     @app.post(
         f"{url_prefix}/embeddings",
         response_model=OpenAIEmbeddingResult,
-        response_class=responses.ORJSONResponse,
         dependencies=route_dependencies,
         operation_id="embeddings",
     )
@@ -426,7 +424,6 @@ def create_server(
     @app.post(
         f"{url_prefix}/rerank",
         response_model=ReRankResult,
-        response_class=responses.ORJSONResponse,
         dependencies=route_dependencies,
         operation_id="rerank",
     )
@@ -478,7 +475,6 @@ def create_server(
     @app.post(
         f"{url_prefix}/sparse_embeddings",
         response_model=SparseEmbeddingResult,
-        response_class=responses.ORJSONResponse,
         dependencies=route_dependencies,
         operation_id="sparse_embeddings",
     )
@@ -513,7 +509,6 @@ def create_server(
 
     @app.post(
         f"{url_prefix}/classify",
-        response_class=responses.ORJSONResponse,
         dependencies=route_dependencies,
         response_model=ClassifyResult,
         operation_id="classify",
@@ -558,7 +553,6 @@ def create_server(
     @app.post(
         f"{url_prefix}/embeddings_image",
         response_model=OpenAIEmbeddingResult,
-        response_class=responses.ORJSONResponse,
         dependencies=route_dependencies,
         operation_id="embeddings_image",
         deprecated=True,
@@ -617,7 +611,6 @@ def create_server(
     @app.post(
         f"{url_prefix}/embeddings_audio",
         response_model=OpenAIEmbeddingResult,
-        response_class=responses.ORJSONResponse,
         dependencies=route_dependencies,
         operation_id="embeddings_audio",
         deprecated=True,
