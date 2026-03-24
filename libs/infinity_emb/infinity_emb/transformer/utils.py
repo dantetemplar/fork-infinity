@@ -12,11 +12,11 @@ from infinity_emb.transformer.crossencoder.optimum import OptimumCrossEncoder
 from infinity_emb.transformer.crossencoder.torch import (
     CrossEncoderPatched as CrossEncoderTorch,
 )
-from infinity_emb.transformer.embedder.ct2 import CT2SentenceTransformer
 from infinity_emb.transformer.embedder.dummytransformer import DummyTransformer
 from infinity_emb.transformer.embedder.neuron import NeuronOptimumEmbedder
 from infinity_emb.transformer.embedder.optimum import OptimumEmbedder
 from infinity_emb.transformer.embedder.sentence_transformer import (
+    SparseEncoderPatched,
     SentenceTransformerPatched,
 )
 from infinity_emb.transformer.vision.torch_vision import TIMM
@@ -29,7 +29,6 @@ __all__ = [
 
 class EmbedderEngine(Enum):
     torch = SentenceTransformerPatched
-    ctranslate2 = CT2SentenceTransformer
     debugengine = DummyTransformer
     optimum = OptimumEmbedder
     neuron = NeuronOptimumEmbedder
@@ -38,8 +37,6 @@ class EmbedderEngine(Enum):
     def from_inference_engine(engine: InferenceEngine):
         if engine == InferenceEngine.torch:
             return EmbedderEngine.torch
-        elif engine == InferenceEngine.ctranslate2:
-            return EmbedderEngine.ctranslate2
         elif engine == InferenceEngine.debugengine:
             return EmbedderEngine.debugengine
         elif engine == InferenceEngine.optimum:
@@ -48,6 +45,17 @@ class EmbedderEngine(Enum):
             return EmbedderEngine.neuron
         else:
             raise NotImplementedError(f"EmbedderEngine for {engine} not implemented")
+
+
+class SparseEmbedderEngine(Enum):
+    torch = SparseEncoderPatched
+
+    @staticmethod
+    def from_inference_engine(engine: InferenceEngine):
+        if engine == InferenceEngine.torch:
+            return SparseEmbedderEngine.torch
+        else:
+            raise NotImplementedError(f"SparseEmbedderEngine for {engine} not implemented")
 
 
 class RerankEngine(Enum):

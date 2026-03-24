@@ -21,6 +21,7 @@ from pydantic import (  # noqa
     BaseModel,
     Discriminator,
     Field,
+    NonNegativeFloat,
     RootModel,
     Tag,
     conlist,
@@ -40,6 +41,7 @@ if TYPE_CHECKING:
         ClassifyReturnType,
         EmbeddingReturnType,
         RerankReturnType,
+        SparseEmbeddingReturnType,
     )
 
 DataURIorURL = Union[Annotated[DataURI, str], HttpUrl]
@@ -68,6 +70,19 @@ class _OpenAIEmbeddingInput_Text(_OpenAIEmbeddingInput):
         Annotated[str, INPUT_STRING],
     ]
     modality: Literal[Modality.text] = Modality.text  # type: ignore
+
+
+class SparseEmbeddingInput(BaseModel):
+    input: Union[  # type: ignore
+        conlist(  # type: ignore
+            Annotated[str, INPUT_STRING],
+            **ITEMS_LIMIT,
+        ),
+        Annotated[str, INPUT_STRING],
+    ]
+    model: str = "default/not-specified"
+    prune_ratio: NonNegativeFloat = Field(default=0.0, le=1.0)
+    task: Literal["query", "document"] = "document"
 
 
 class _OpenAIEmbeddingInput_URI(_OpenAIEmbeddingInput):
@@ -172,6 +187,45 @@ class OpenAIEmbeddingResult(BaseModel):
             data=[
                 dict(
                     object="embedding",
+                    embedding=emb,
+                    index=count,
+                )
+                for count, emb in enumerate(embeddings)
+            ],
+            usage=dict(prompt_tokens=usage, total_tokens=usage),
+        )
+
+
+class _SparseVector(BaseModel):
+    indices: list[int]
+    values: list[float]
+
+
+class _SparseEmbeddingObject(BaseModel):
+    object: Literal["sparse_embedding"] = "sparse_embedding"
+    embedding: _SparseVector
+    index: int
+
+
+class SparseEmbeddingResult(BaseModel):
+    object: Literal["list"] = "list"
+    data: list[_SparseEmbeddingObject]
+    model: str
+    usage: _Usage
+    id: str = Field(default_factory=lambda: f"infinity-{uuid4()}")
+    created: int = Field(default_factory=lambda: int(time.time()))
+
+    @staticmethod
+    def to_sparse_response(
+        embeddings: Iterable["SparseEmbeddingReturnType"],
+        engine_args: "EngineArgs",
+        usage: int,
+    ) -> dict[str, Union[str, list[dict], dict]]:
+        return dict(
+            model=engine_args.served_model_name,
+            data=[
+                dict(
+                    object="sparse_embedding",
                     embedding=emb,
                     index=count,
                 )

@@ -13,13 +13,8 @@ from infinity_emb._optional_imports import (
     CHECK_TORCH,
 )
 from infinity_emb.args import EngineArgs
-from infinity_emb.log_handler import logger
 from infinity_emb.primitives import Device
 from infinity_emb.transformer.abstract import BaseEmbedder
-from infinity_emb.transformer.acceleration import (
-    to_bettertransformer,
-    check_if_bettertransformer_possible,
-)
 from infinity_emb.transformer.quantization.interface import (
     quant_embedding_decorator,
     quant_interface,
@@ -27,14 +22,18 @@ from infinity_emb.transformer.quantization.interface import (
 
 if TYPE_CHECKING:
     from torch import Tensor
-    from infinity_emb.primitives import EmbeddingReturnType
+    from infinity_emb.primitives import EmbeddingReturnType, SparseEmbeddingReturnType
 
 
 if CHECK_SENTENCE_TRANSFORMERS.is_available:
     from sentence_transformers import SentenceTransformer, util  # type: ignore
+    from sentence_transformers.sparse_encoder import SparseEncoder  # type: ignore
 else:
 
     class SentenceTransformer:  # type: ignore[no-redef]
+        pass
+
+    class SparseEncoder:  # type: ignore[no-redef]
         pass
 
 
@@ -59,10 +58,6 @@ class SentenceTransformerPatched(SentenceTransformer, BaseEmbedder):
         CHECK_SENTENCE_TRANSFORMERS.mark_required()
 
         model_kwargs = {}
-        attempt_bt = check_if_bettertransformer_possible(engine_args)
-        if engine_args.bettertransformer and attempt_bt:
-            model_kwargs["attn_implementation"] = "eager"
-
         ls = engine_args._loading_strategy
         assert ls is not None
 
@@ -92,13 +87,6 @@ class SentenceTransformerPatched(SentenceTransformer, BaseEmbedder):
         self._infinity_tokenizer = copy.deepcopy(fm.tokenizer)
         self.eval()
         self.engine_args = engine_args
-        if engine_args.bettertransformer and attempt_bt:
-            fm.auto_model = to_bettertransformer(
-                fm.auto_model,
-                engine_args,
-                logger,
-            )
-
         fm.to(ls.loading_dtype)
 
         if ls.quantization_dtype is not None:
@@ -164,6 +152,94 @@ class SentenceTransformerPatched(SentenceTransformer, BaseEmbedder):
             return_attention_mask=False,
             return_length=False,
             # max_length=self._infinity_tokenizer.model_max_length,
+            truncation="longest_first",
+        ).encodings
+        return [len(t.tokens) for t in tks]
+
+
+class SparseEncoderPatched(BaseEmbedder):
+    """SparseEncoder with infinity encode pre/core/post contract."""
+
+    capabilities = {"sparse_embed"}
+
+    def __init__(self, *, engine_args=EngineArgs):
+        CHECK_TORCH.mark_required()
+        CHECK_SENTENCE_TRANSFORMERS.mark_required()
+
+        model_kwargs = {}
+        ls = engine_args._loading_strategy
+        assert ls is not None
+
+        if ls.loading_dtype is not None:
+            model_kwargs["torch_dtype"] = ls.loading_dtype
+
+        self._model = SparseEncoder(
+            engine_args.model_name_or_path,
+            revision=engine_args.revision,
+            trust_remote_code=engine_args.trust_remote_code,
+            device=ls.device_placement,
+            model_kwargs=model_kwargs,
+        )
+        self._model.to(ls.device_placement)
+        fm = self._model._first_module()
+        self._infinity_tokenizer = copy.deepcopy(fm.tokenizer)
+        self._model.eval()
+        self.engine_args = engine_args
+        fm.to(ls.loading_dtype)
+
+        if engine_args.compile:
+            logger.info("using torch.compile(dynamic=True)")
+            fm.auto_model = torch.compile(fm.auto_model, dynamic=True)
+
+    def encode_pre(self, sentences) -> dict[str, "Tensor"]:
+        if sentences and isinstance(sentences[0], tuple):
+            tasks = {task for task, _ in sentences}
+            if len(tasks) != 1:
+                raise ValueError("Sparse batch must contain a single task type")
+            task = next(iter(tasks))
+            text = [s for _, s in sentences]
+            features = self._model.tokenize(text, task=task)
+            features["_infinity_task"] = task  # type: ignore
+            return features
+        return self._model.tokenize(sentences)
+
+    def encode_core(self, features: dict[str, "Tensor"]) -> "Tensor":
+        with torch.no_grad():
+            task = features.pop("_infinity_task", None)  # type: ignore
+            features = util.batch_to_device(features, self._model.device)  # type: ignore
+            out = self._model.forward(features, task=task)
+            return out["sentence_embedding"].detach().cpu()
+
+    def encode_post(self, out_features: "Tensor") -> list["SparseEmbeddingReturnType"]:
+        results: list["SparseEmbeddingReturnType"] = [
+            {"indices": [], "values": []} for _ in range(out_features.shape[0])
+        ]
+
+        if out_features.is_sparse:
+            sparse = out_features.coalesce()
+            batch_idx = sparse.indices()[0].tolist()
+            token_idx = sparse.indices()[1].tolist()
+            values = sparse.values().to(torch.float32).tolist()
+            for b, t, v in zip(batch_idx, token_idx, values):
+                results[b]["indices"].append(t)
+                results[b]["values"].append(v)
+        else:
+            nz = torch.nonzero(out_features, as_tuple=False)
+            if nz.numel() > 0:
+                values = out_features[nz[:, 0], nz[:, 1]].to(torch.float32).tolist()
+                for (b, t), v in zip(nz.tolist(), values):
+                    results[b]["indices"].append(int(t))
+                    results[b]["values"].append(v)
+
+        return results
+
+    def tokenize_lengths(self, sentences: list[str]) -> list[int]:
+        tks = self._infinity_tokenizer.batch_encode_plus(
+            sentences,
+            add_special_tokens=False,
+            return_token_type_ids=False,
+            return_attention_mask=False,
+            return_length=False,
             truncation="longest_first",
         ).encodings
         return [len(t.tokens) for t in tks]

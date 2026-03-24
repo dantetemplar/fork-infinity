@@ -19,6 +19,7 @@ from infinity_emb.primitives import (
     ImageClassType,
     ModelCapabilites,
     RerankReturnType,
+    SparseEmbeddingReturnType,
 )
 
 
@@ -156,6 +157,59 @@ class AsyncEmbeddingEngine:
             sentences=sentences, matryoshka_dim=matryoshka_dim
         )
         return embeddings, usage
+
+    async def sparse_embed(
+        self, sentences: list[str], prune_ratio: float = 0.0, task: str = "document"
+    ) -> tuple[list["SparseEmbeddingReturnType"], int]:
+        """embed multiple sentences with sparse output."""
+        self._assert_running()
+        embeddings, usage = await self._batch_handler.sparse_embed(sentences=sentences, task=task)
+        if prune_ratio > 0:
+            special_token_ids = self._get_sparse_special_token_ids()
+            embeddings = self._prune_sparse_embeddings(
+                embeddings=embeddings,
+                prune_ratio=prune_ratio,
+                special_token_ids=special_token_ids,
+            )
+        return embeddings, usage
+
+    def _get_sparse_special_token_ids(self) -> set[int]:
+        tokenizer = getattr(self._model_replicas[0], "_infinity_tokenizer", None)
+        if tokenizer is None:
+            return set()
+        return {int(tid) for tid in getattr(tokenizer, "all_special_ids", [])}
+
+    @staticmethod
+    def _prune_sparse_embeddings(
+        embeddings: list["SparseEmbeddingReturnType"],
+        prune_ratio: float,
+        special_token_ids: set[int],
+    ) -> list["SparseEmbeddingReturnType"]:
+        pruned: list[SparseEmbeddingReturnType] = []
+        for emb in embeddings:
+            indices = emb["indices"]
+            values = emb["values"]
+
+            filtered = [
+                (idx, float(val))
+                for idx, val in zip(indices, values)
+                if idx not in special_token_ids and val > 0
+            ]
+            if not filtered:
+                pruned.append({"indices": [], "values": []})
+                continue
+
+            max_value = max(v for _, v in filtered)
+            threshold = max_value * prune_ratio
+            kept = [(idx, val) for idx, val in filtered if val > threshold]
+
+            pruned.append(
+                {
+                    "indices": [idx for idx, _ in kept],
+                    "values": [val for _, val in kept],
+                }
+            )
+        return pruned
 
     async def rerank(
         self,
@@ -339,6 +393,13 @@ class AsyncEngineArray:
             int: token usage
         """
         return await self[model].embed(sentences, matryoshka_dim=matryoshka_dim)
+
+    async def sparse_embed(
+        self, *, model: str, sentences: list[str], prune_ratio: float = 0.0, task: str = "document"
+    ) -> tuple[list["SparseEmbeddingReturnType"], int]:
+        return await self[model].sparse_embed(
+            sentences=sentences, prune_ratio=prune_ratio, task=task
+        )
 
     def is_running(self) -> bool:
         return all(engine.is_running for engine in self.engines_dict.values())

@@ -50,6 +50,11 @@ EmbeddingReturnType = npt.NDArray[Union[np.float32, np.float32]]
 AudioInputType = npt.NDArray[np.float32]
 
 
+class SparseEmbeddingReturnType(TypedDict):
+    indices: list[int]
+    values: list[float]
+
+
 @dataclass(**dataclass_args)
 class RerankReturnType:
     relevance_score: float
@@ -64,7 +69,12 @@ class ClassifyReturnType(TypedDict):
 
 ReRankReturnType = float
 
-UnionReturnType = Union[EmbeddingReturnType, ReRankReturnType, ClassifyReturnType]
+UnionReturnType = Union[
+    EmbeddingReturnType,
+    SparseEmbeddingReturnType,
+    ReRankReturnType,
+    ClassifyReturnType,
+]
 
 
 class EnumType(str, enum.Enum):
@@ -94,7 +104,6 @@ class EmbeddingEncodingFormat(EnumType):
 
 class InferenceEngine(EnumType):
     torch = "torch"
-    ctranslate2 = "ctranslate2"
     optimum = "optimum"
     neuron = "neuron"
     debugengine = "debugengine"
@@ -224,6 +233,14 @@ class EmbeddingSingle(AbstractSingle):
 
 
 @dataclass(**dataclass_args)
+class SparseEmbeddingSingle(EmbeddingSingle):
+    task: str = "document"
+
+    def to_input(self) -> tuple[str, str]:
+        return self.task, self.sentence
+
+
+@dataclass(**dataclass_args)
 class ReRankSingle(AbstractSingle):
     query: str
     document: str
@@ -300,6 +317,30 @@ class EmbeddingInner(AbstractInner):
             pass
 
     async def get_result(self) -> EmbeddingReturnType:
+        """waits for future to complete and returns result"""
+        await self.future
+        assert self.embedding is not None
+        return self.embedding
+
+
+@dataclass(order=True, **dataclass_args)
+class SparseEmbeddingInner(AbstractInner):
+    content: SparseEmbeddingSingle
+    embedding: Optional["SparseEmbeddingReturnType"] = None
+
+    async def complete(self, result: SparseEmbeddingReturnType) -> None:
+        """marks the future for completion.
+        only call from the same thread as created future."""
+        self.embedding = result
+
+        if self.embedding is None:
+            raise ValueError("embedding is None")
+        try:
+            self.future.set_result(self.embedding)
+        except asyncio.exceptions.InvalidStateError:
+            pass
+
+    async def get_result(self) -> SparseEmbeddingReturnType:
         """waits for future to complete and returns result"""
         await self.future
         assert self.embedding is not None
@@ -402,10 +443,18 @@ class AudioInner(AbstractInner):
         return self.embedding
 
 
-QueueItemInner = Union[EmbeddingInner, ReRankInner, PredictInner, ImageInner, AudioInner]
+QueueItemInner = Union[
+    EmbeddingInner,
+    SparseEmbeddingInner,
+    ReRankInner,
+    PredictInner,
+    ImageInner,
+    AudioInner,
+]
 
 _type_to_inner_item_map = {
     EmbeddingSingle: EmbeddingInner,
+    SparseEmbeddingSingle: SparseEmbeddingInner,
     ReRankSingle: ReRankInner,
     PredictSingle: PredictInner,
     ImageSingle: ImageInner,
@@ -449,7 +498,14 @@ class AudioCorruption(Exception):
     pass
 
 
-ModelCapabilites = Literal["embed", "rerank", "classify", "image_embed", "audio_embed"]
+ModelCapabilites = Literal[
+    "embed",
+    "sparse_embed",
+    "rerank",
+    "classify",
+    "image_embed",
+    "audio_embed",
+]
 
 
 class Modality(str, enum.Enum):

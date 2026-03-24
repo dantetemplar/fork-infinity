@@ -22,6 +22,8 @@ from infinity_emb.primitives import (
     AbstractSingle,
     ClassifyReturnType,
     EmbeddingReturnType,
+    SparseEmbeddingReturnType,
+    SparseEmbeddingSingle,
     EmbeddingSingle,
     ImageClassType,
     ModelCapabilites,
@@ -167,12 +169,24 @@ class BatchHandler:
         """
         if "embed" not in self.capabilities:
             raise ModelNotDeployedError(
-                "the loaded moded cannot fullyfill `embed`. " f"Options are {self.capabilities}."
+                f"the loaded moded cannot fullyfill `embed`. Options are {self.capabilities}."
             )
         input_sentences = [EmbeddingSingle(sentence=s) for s in sentences]
 
         embeddings, usage = await self._schedule(input_sentences)
         return matryososka_slice(embeddings, matryoshka_dim), usage
+
+    async def sparse_embed(
+        self, sentences: list[str], task: str = "document"
+    ) -> tuple[list["SparseEmbeddingReturnType"], int]:
+        """Schedule sparse sentence embeddings. Awaits until embedded."""
+        if "sparse_embed" not in self.capabilities:
+            raise ModelNotDeployedError(
+                f"the loaded moded cannot fullyfill `sparse_embed`. Options are {self.capabilities}."
+            )
+        input_sentences = [SparseEmbeddingSingle(sentence=s, task=task) for s in sentences]
+        embeddings, usage = await self._schedule(input_sentences)
+        return embeddings, usage
 
     async def rerank(
         self,
@@ -200,7 +214,7 @@ class BatchHandler:
         """
         if "rerank" not in self.capabilities:
             raise ModelNotDeployedError(
-                "the loaded moded cannot fullyfill `rerank`. " f"Options are {self.capabilities}."
+                f"the loaded moded cannot fullyfill `rerank`. Options are {self.capabilities}."
             )
         rerankables = [ReRankSingle(query=query, document=doc) for doc in docs]
         scores, usage = await self._schedule(rerankables)
@@ -239,7 +253,7 @@ class BatchHandler:
         """
         if "classify" not in self.capabilities:
             raise ModelNotDeployedError(
-                "the loaded moded cannot fullyfill `classify`. " f"Options are {self.capabilities}."
+                f"the loaded moded cannot fullyfill `classify`. Options are {self.capabilities}."
             )
         items = [PredictSingle(sentence=s) for s in sentences]
         classifications, usage = await self._schedule(items)
@@ -272,8 +286,7 @@ class BatchHandler:
 
         if "image_embed" not in self.capabilities:
             raise ModelNotDeployedError(
-                "the loaded moded cannot fullyfill `image_embed`. "
-                f"Options are {self.capabilities}."
+                f"the loaded moded cannot fullyfill `image_embed`. Options are {self.capabilities}."
             )
 
         items = await resolve_images(images)
@@ -299,8 +312,7 @@ class BatchHandler:
 
         if "audio_embed" not in self.capabilities:
             raise ModelNotDeployedError(
-                "the loaded moded cannot fullyfill `audio_embed`. "
-                f"Options are {self.capabilities}."
+                f"the loaded moded cannot fullyfill `audio_embed`. Options are {self.capabilities}."
             )
 
         items = await resolve_audios(

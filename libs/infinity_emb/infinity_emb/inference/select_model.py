@@ -17,12 +17,20 @@ from infinity_emb.transformer.utils import (
     InferenceEngine,
     PredictEngine,
     RerankEngine,
+    SparseEmbedderEngine,
 )
 
 
 def get_engine_type_from_config(
     engine_args: EngineArgs,
-) -> Union[EmbedderEngine, RerankEngine, PredictEngine, ImageEmbedEngine, AudioEmbedEngine]:
+) -> Union[
+    EmbedderEngine,
+    SparseEmbedderEngine,
+    RerankEngine,
+    PredictEngine,
+    ImageEmbedEngine,
+    AudioEmbedEngine,
+]:
     """resolved the class of inference engine path from config.json of the repo."""
     if engine_args.engine in [InferenceEngine.debugengine]:
         return EmbedderEngine.from_inference_engine(engine_args.engine)
@@ -30,6 +38,10 @@ def get_engine_type_from_config(
     if Path(engine_args.model_name_or_path).is_dir():
         logger.debug("model is a directory, opening config.json")
         config_path = Path(engine_args.model_name_or_path) / "config.json"
+        modules_path = Path(engine_args.model_name_or_path) / "modules.json"
+        st_config_path = (
+            Path(engine_args.model_name_or_path) / "config_sentence_transformers.json"
+        )
     else:
         from huggingface_hub import hf_hub_download  # type: ignore[import-untyped]
 
@@ -40,9 +52,46 @@ def get_engine_type_from_config(
                 filename="config.json",
             )
         )
+        try:
+            modules_path = Path(
+                hf_hub_download(
+                    engine_args.model_name_or_path,
+                    revision=engine_args.revision,
+                    filename="modules.json",
+                )
+            )
+        except Exception:
+            modules_path = None
+        try:
+            st_config_path = Path(
+                hf_hub_download(
+                    engine_args.model_name_or_path,
+                    revision=engine_args.revision,
+                    filename="config_sentence_transformers.json",
+                )
+            )
+        except Exception:
+            st_config_path = None
 
     with open(config_path, "r") as f:
         config = json.load(f)
+
+    if st_config_path and st_config_path.exists():
+        with open(st_config_path, "r") as f:
+            st_config = json.load(f)
+        if st_config.get("model_type", "").lower() == "sparseencoder":
+            return SparseEmbedderEngine.from_inference_engine(engine_args.engine)
+
+    modules = []
+    if modules_path and modules_path.exists():
+        with open(modules_path, "r") as f:
+            modules = json.load(f)
+
+    if any(
+        "MLMTransformer" in m.get("type", "") or "SpladePooling" in m.get("type", "")
+        for m in modules
+    ):
+        return SparseEmbedderEngine.from_inference_engine(engine_args.engine)
 
     if any("SequenceClassification" in arch for arch in config.get("architectures", [])):
         id2label = config.get("id2label", {"0": "dummy"})
@@ -97,16 +146,28 @@ def select_model(
             max_inference_t = max(max_inference_temp, max_inference_t)
 
             logger.info(log_msg)
-            # now warm up with max_token, max batch size
-            loaded_engine.warmup(batch_size=engine_args.batch_size, n_tokens=512)
-            emb_per_sec, _, log_msg = loaded_engine.warmup(
-                batch_size=engine_args.batch_size, n_tokens=512
-            )
-            logger.info(log_msg)
-            logger.info(
-                f"model warmed up, between {emb_per_sec:.2f}-{emb_per_sec_short:.2f}"
-                f" embeddings/sec at batch_size={engine_args.batch_size}"
-            )
+            if "sparse_embed" in loaded_engine.capabilities:
+                # Sparse MLM heads can OOM quickly on small GPUs during 512-token warmup.
+                sparse_warmup_bs = min(engine_args.batch_size, 4)
+                emb_per_sec, _, log_msg = loaded_engine.warmup(
+                    batch_size=sparse_warmup_bs, n_tokens=8
+                )
+                logger.info(log_msg)
+                logger.info(
+                    f"sparse model warmed up, between {emb_per_sec:.2f}-{emb_per_sec_short:.2f}"
+                    f" embeddings/sec at batch_size={sparse_warmup_bs}"
+                )
+            else:
+                # now warm up with max_token, max batch size
+                loaded_engine.warmup(batch_size=engine_args.batch_size, n_tokens=512)
+                emb_per_sec, _, log_msg = loaded_engine.warmup(
+                    batch_size=engine_args.batch_size, n_tokens=512
+                )
+                logger.info(log_msg)
+                logger.info(
+                    f"model warmed up, between {emb_per_sec:.2f}-{emb_per_sec_short:.2f}"
+                    f" embeddings/sec at batch_size={engine_args.batch_size}"
+                )
         engine_replicas.append(loaded_engine)
     assert len(engine_replicas) > 0, "No engine replicas were loaded"
 

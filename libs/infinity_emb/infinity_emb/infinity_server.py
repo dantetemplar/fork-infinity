@@ -76,6 +76,8 @@ def create_server(
         OpenAIModelInfo,
         RerankInput,
         ReRankResult,
+        SparseEmbeddingInput,
+        SparseEmbeddingResult,
     )
 
     @asynccontextmanager
@@ -109,7 +111,7 @@ def create_server(
                 await asyncio.sleep(seconds)
                 os.kill(os.getpid(), signal.SIGINT)
 
-            logger.info(f"Preloaded configuration successfully. {engine_args_list} " " -> exit .")
+            logger.info(f"Preloaded configuration successfully. {engine_args_list}  -> exit .")
             asyncio.create_task(kill_later(3))
 
         yield
@@ -437,6 +439,42 @@ def create_server(
         except ModelNotDeployedError as ex:
             raise errors.OpenAIException(
                 f"ModelNotDeployedError: model=`{data.model}` does not support `rerank`. Reason: {ex}",
+                code=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as ex:
+            raise errors.OpenAIException(
+                f"InternalServerError: {ex}",
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @app.post(
+        f"{url_prefix}/sparse_embeddings",
+        response_model=SparseEmbeddingResult,
+        response_class=responses.ORJSONResponse,
+        dependencies=route_dependencies,
+        operation_id="sparse_embeddings",
+    )
+    async def _sparse_embeddings(data: SparseEmbeddingInput):
+        engine = _resolve_engine(data.model)
+        try:
+            start = time.perf_counter()
+            input_ = [data.input] if isinstance(data.input, str) else data.input
+            embedding, usage = await engine.sparse_embed(
+                sentences=input_,
+                prune_ratio=float(data.prune_ratio),
+                task=data.task,
+            )
+            duration = (time.perf_counter() - start) * 1000
+            logger.debug("[✅] Sparse embeddings done in %s ms", duration)
+
+            return SparseEmbeddingResult.to_sparse_response(
+                embeddings=embedding,
+                engine_args=engine.engine_args,
+                usage=usage,
+            )
+        except ModelNotDeployedError as ex:
+            raise errors.OpenAIException(
+                f"ModelNotDeployedError: model=`{data.model}` does not support `sparse_embed`. Reason: {ex}",
                 code=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as ex:
