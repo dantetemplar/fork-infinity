@@ -75,6 +75,26 @@ def typer_option_resolve(*args):
     return (a.default if (hasattr(a, "default") and hasattr(a, "envvar")) else a for a in args)
 
 
+def _to_bool(value) -> bool:
+    """parse bool-like values from CLI/env input"""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "y", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "n", "off"}:
+            return False
+    raise ValueError(f"Could not parse boolean value: {value!r}")
+
+
+def _to_bool_list(values) -> list[bool]:
+    resolved = typer_option_resolve(values)
+    if isinstance(resolved, (list, tuple)):
+        return [_to_bool(v) for v in resolved]
+    return [_to_bool(resolved)]
+
+
 def _construct(name: str):
     """constructs the default entry and type hint for the variable name"""
     return dict(
@@ -193,7 +213,7 @@ if CHECK_TYPER.is_available:
         revision: list[str] = typer.Option(
             **_construct("revision"), help="huggingface  model repo revision."
         ),
-        trust_remote_code: list[bool] = typer.Option(
+        trust_remote_code: list[str] = typer.Option(
             **_construct("trust_remote_code"),
             help="if potential remote modeling code from huggingface repo is trusted.",
         ),
@@ -201,11 +221,11 @@ if CHECK_TYPER.is_available:
             **_construct("engine"),
             help="Which backend to use. `torch` uses Pytorch GPU/CPU, optimum uses ONNX on GPU/CPU/NVIDIA-TensorRT.",
         ),
-        model_warmup: list[bool] = typer.Option(
+        model_warmup: list[str] = typer.Option(
             **_construct("model_warmup"),
             help="if model should be warmed up after startup, and before ready.",
         ),
-        vector_disk_cache: list[bool] = typer.Option(
+        vector_disk_cache: list[str] = typer.Option(
             **_construct("vector_disk_cache"),
             help="If hash(request)/results should be cached to SQLite for latency improvement.",
         ),
@@ -217,7 +237,7 @@ if CHECK_TYPER.is_available:
             **_construct("device_id"),
             help="device id defines the model placement. e.g. `0,1` will place the model on MPS/CUDA/GPU 0 and 1 each",
         ),
-        lengths_via_tokenize: list[bool] = typer.Option(
+        lengths_via_tokenize: list[str] = typer.Option(
             **_construct("lengths_via_tokenize"),
             help="if True, returned tokens is based on actual tokenizer count. If false, uses len(input) as proxy.",
         ),
@@ -232,7 +252,7 @@ if CHECK_TYPER.is_available:
             **_construct("pooling_method"),
             help="overwrite the pooling method if inferred incorrectly.",
         ),
-        compile: list[bool] = typer.Option(
+        compile: list[str] = typer.Option(
             **_construct("compile"),
             help="Enable usage of `torch.compile(dynamic=True)` if engine relies on it.",
         ),
@@ -264,11 +284,11 @@ if CHECK_TYPER.is_available:
             **_construct("proxy_root_path"),
             help="Proxy prefix for the application. See: https://fastapi.tiangolo.com/advanced/behind-a-proxy/",
         ),
-        onnx_disable_optimize: list[bool] = typer.Option(
+        onnx_disable_optimize: list[str] = typer.Option(
             **_construct("onnx_disable_optimize"),
             help="Disable onnx optimization",
         ),
-        onnx_do_not_prefer_quantized: list[bool] = typer.Option(
+        onnx_do_not_prefer_quantized: list[str] = typer.Option(
             **_construct("onnx_do_not_prefer_quantized"),
             help="Do not use quantized onnx models by default if available",
         ),
@@ -314,6 +334,13 @@ if CHECK_TYPER.is_available:
         onnx_do_not_prefer_quantized, bool: do not prefer quantized onnx model if its available
         """
         logger.setLevel(log_level.to_int())
+        trust_remote_code = _to_bool_list(trust_remote_code)
+        model_warmup = _to_bool_list(model_warmup)
+        vector_disk_cache = _to_bool_list(vector_disk_cache)
+        lengths_via_tokenize = _to_bool_list(lengths_via_tokenize)
+        compile = _to_bool_list(compile)
+        onnx_disable_optimize = _to_bool_list(onnx_disable_optimize)
+        onnx_do_not_prefer_quantized = _to_bool_list(onnx_do_not_prefer_quantized)
         device_id_typed = [DeviceID(d) for d in typer_option_resolve(device_id)]
         padder = AutoPadding(
             length=len(model_id),
