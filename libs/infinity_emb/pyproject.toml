@@ -24,6 +24,7 @@ orjson = {version = ">=3.9.8,!=3.10.0", optional=true}
 prometheus-fastapi-instrumentator = {version = ">=6.1.0", optional=true}
 uvicorn = {version = "^0.32.0", optional=true, extras = ["standard"]}
 typer = {version = "^0.12.5", optional=true}
+click = {version = ">=8.0.0,<8.2.0", optional=true}
 pydantic = {version = ">=2.4.0,<3", optional=true} 
 posthog = {version = "*", optional=true}
 # backend
@@ -116,6 +117,7 @@ server=[
     "pydantic",
     "rich",
     "typer",
+    "click",
     "uvicorn",
 ]
 all=[
@@ -135,6 +137,7 @@ all=[
     "torch", 
     "torchvision",
     "typer", 
+    "click",
     "uvicorn",
     "soundfile"
 ]
